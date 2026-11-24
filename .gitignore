@@ -1,0 +1,25 @@
+.venv/
+
+.pytest_cache/
+
+# Cache do Python
+__pycache__/
+*.py[cod]
+
+# Arquivos de configuração local
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+
+# Backups gerados
+backups/
+
+# Configurações locais do VS Code
+.vscode/
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
