@@ -1,8 +1,8 @@
 from pathlib import Path
 from datetime import datetime, timedelta
 from logger import logger
+from config import load_config
 
-retention_days = 30
 
 def get_backups():
     project_root = Path(__file__).resolve().parent.parent
