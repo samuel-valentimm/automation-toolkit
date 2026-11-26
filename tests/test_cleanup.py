@@ -36,7 +36,7 @@ def test_get_backup_age_future_date(tmp_path):
 
 
 def test_handle_empty_backups():
-    result = handle_empty_or_single_backup([])
+    result = handle_empty_or_single_backup([], 30)
 
     assert result is True
 
@@ -45,7 +45,7 @@ def test_handle_single_recent_backup(tmp_path):
     backup = tmp_path / "backup_recente.zip"
     backup.touch()
 
-    result = handle_empty_or_single_backup([backup])
+    result = handle_empty_or_single_backup([backup], 30)
 
     assert result is True
     assert backup.exists()
@@ -58,7 +58,7 @@ def test_handle_single_old_backup(tmp_path):
     old_time = datetime.now().timestamp() - (40 * 86400)
     os.utime(backup, (old_time, old_time))
 
-    result = handle_empty_or_single_backup([backup])
+    result = handle_empty_or_single_backup([backup], 30)
 
     assert result is True
     assert backup.exists()
@@ -77,7 +77,7 @@ def test_classify_two_old_backups(tmp_path):
     os.utime(older_backup, (old_time, old_time))
     os.utime(newer_backup, (newer_time, newer_time))
 
-    old_backups = classify_backups([older_backup, newer_backup])
+    old_backups = classify_backups([older_backup, newer_backup], 30)
 
     assert older_backup in old_backups
     assert newer_backup not in old_backups
@@ -96,7 +96,7 @@ def test_classify_two_recent_backups(tmp_path):
     os.utime(backup_5_days, (time_5_days, time_5_days))
     os.utime(backup_10_days, (time_10_days, time_10_days))
 
-    old_backups = classify_backups([backup_5_days, backup_10_days])
+    old_backups = classify_backups([backup_5_days, backup_10_days], 30)
 
     assert old_backups == []
 
@@ -114,7 +114,7 @@ def test_classify_old_and_recent_backups(tmp_path):
     os.utime(old_backup, (old_time, old_time))
     os.utime(recent_backup, (recent_time, recent_time))
 
-    old_backups = classify_backups([old_backup, recent_backup])
+    old_backups = classify_backups([old_backup, recent_backup], 30)
 
     assert old_backup in old_backups
     assert recent_backup not in old_backups
@@ -133,7 +133,7 @@ def test_classify_future_and_old_backups(tmp_path):
     os.utime(future_backup, (future_time, future_time))
     os.utime(old_backup, (old_time, old_time))
 
-    old_backups = classify_backups([future_backup, old_backup])
+    old_backups = classify_backups([future_backup, old_backup], 30)
 
     assert old_backup in old_backups
     assert future_backup not in old_backups
@@ -174,7 +174,7 @@ def test_cleanup_all_old_backups(tmp_path):
 
         backups.append(backup)
 
-    old_backups = classify_backups(backups)
+    old_backups = classify_backups(backups, 30)
     delete_old_backups(old_backups)
 
     for backup, days in zip(backups, days_list):
@@ -187,12 +187,23 @@ def test_cleanup_all_old_backups(tmp_path):
 def test_check_old_backups_empty(monkeypatch):
     monkeypatch.setattr("cleanup.get_backups", lambda: [])
 
+    monkeypatch.setattr(
+        "cleanup.load_config",
+        lambda: {"retention_days": 30, "cleanup_on_startup": False}
+)
+
     result = check_old_backups()
 
     assert result is None
 
 
 def test_check_old_backups_single_backup(monkeypatch, tmp_path):
+
+    monkeypatch.setattr(
+        "cleanup.load_config",
+        lambda: {"retention_days": 30, "cleanup_on_startup": False}
+    )
+
     backup = tmp_path / "backup_antigo.zip"
     backup.touch()
 
@@ -206,6 +217,12 @@ def test_check_old_backups_single_backup(monkeypatch, tmp_path):
 
 
 def test_check_old_backups_mixed(monkeypatch, tmp_path):
+
+    monkeypatch.setattr(
+        "cleanup.load_config",
+        lambda: {"retention_days": 30, "cleanup_on_startup": False}
+    )
+
     old_backup = tmp_path / "backup_antigo.zip"
     recent_backup = tmp_path / "backup_recente.zip"
 
@@ -227,3 +244,30 @@ def test_check_old_backups_mixed(monkeypatch, tmp_path):
 
     assert not old_backup.exists()
     assert recent_backup.exists()
+
+
+def test_check_old_backups_missing_config(monkeypatch, tmp_path):
+    backup = tmp_path / "backup_antigo.zip"
+    backup.touch()
+
+    monkeypatch.setattr("cleanup.load_config", lambda: None)
+    monkeypatch.setattr("cleanup.get_backups", lambda: [backup])
+
+    check_old_backups()
+
+    assert backup.exists()
+
+
+def test_check_old_backups_invalid_config(monkeypatch, tmp_path):
+    backup = tmp_path / "backup_antigo.zip"
+    backup.touch()
+
+    def invalid_config():
+        raise ValueError("Configuracao invalida")
+
+    monkeypatch.setattr("cleanup.load_config", invalid_config)
+    monkeypatch.setattr("cleanup.get_backups", lambda: [backup])
+
+    check_old_backups()
+
+    assert backup.exists()

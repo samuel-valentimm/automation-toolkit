@@ -56,4 +56,4 @@ def get_invalid_config_fields(config):
 
 
 def validate_config(config):
-    return len(get_invalid_config_fields(config)) == 0
+    return not get_invalid_config_fields(config)

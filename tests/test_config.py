@@ -81,7 +81,7 @@ def test_load_missing_config(tmp_path, monkeypatch):
 def test_get_invalid_config_fields():
     settings = {
         "retention_days": 90,
-        "cleanup_on_startup": False
+        "cleanup_on_startup": "False"
     }
 
     invalid_fields = get_invalid_config_fields(settings)

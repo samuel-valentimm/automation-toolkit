@@ -28,7 +28,7 @@ def get_backup_age(backup):
     return age
 
 
-def handle_empty_or_single_backup(backups):
+def handle_empty_or_single_backup(backups, retention_days):
     if not backups:
         logger.info("Nenhum backup encontrado.")
         return True
@@ -57,7 +57,7 @@ def handle_empty_or_single_backup(backups):
     return False
 
 
-def classify_backups(backups):
+def classify_backups(backups, retention_days):
     latest_backup = max(backups, key = lambda backup: backup.stat().st_mtime)
     old_backups = []
 
@@ -91,17 +91,31 @@ def classify_backups(backups):
 
 
 def check_old_backups():
+
+    try:
+        config = load_config()
+
+    except ValueError:
+        logger.exception("Configuracao invalida. Limpeza cancelada.")
+        return
+
+    if config is None:
+        logger.warning("Configuracao nao encontrada. Limpeza cancelada.")
+        return
+
+    retention_days = config["retention_days"]
+
     backups = get_backups()
 
-    if handle_empty_or_single_backup(backups):
-        return 
-    
-    old_backups = classify_backups(backups)
+    if handle_empty_or_single_backup(backups, retention_days):
+        return
 
-    logger.info(f"Backups antigos encontrados: {len(old_backups)}")
+    old_backups = classify_backups(backups, retention_days)
+
+    logger.info(f"Backups antigos encontrados: {len(backups)}")
 
     delete_old_backups(old_backups)
-
+    
 
 def delete_old_backups(old_backups):
     for backup in old_backups:
