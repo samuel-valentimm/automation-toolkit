@@ -1,5 +1,7 @@
 from paths import config_file
 import json
+import shutil
+from datetime import datetime
 
 
 DEFAULT_CONFIG = {
@@ -8,6 +10,27 @@ DEFAULT_CONFIG = {
 }
 
 ALLOWED_RETENTION_DAYS = [1, 3, 7, 15, 30, 60]
+
+
+def backup_config():
+    if not config_file.exists():
+        return None
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_file = config_file.with_name(f"config_backup_{timestamp}.json")
+
+    shutil.copy2(config_file, backup_file)
+
+    return backup_file
+
+
+def reset_config():
+    backup_config()
+
+    config = DEFAULT_CONFIG.copy()
+    save_config(config)
+
+    return config 
 
 
 def save_config(config):
@@ -20,21 +43,28 @@ def save_config(config):
         json.dump(config, file, indent = 4)
 
 
-def load_config():
+def load_config_raw():
     if not config_file.exists():
         return None
 
-    try:
+    try: 
         with open(config_file, "r", encoding = "utf-8") as file:
-            config = json.load(file)
+            return json.load(file)
 
     except json.JSONDecodeError:
         raise ValueError("O arquivo de configuracao esta corrompido.")
+    
+
+def load_config():
+    config = load_config_raw()
+
+    if config is None:
+        return None
 
     if not validate_config(config):
         raise ValueError("Arquivo de configuracao possui valores invalidos.")
 
-    return config 
+    return config
 
 
 def get_invalid_config_fields(config):
@@ -69,6 +99,7 @@ def repair_config(config):
     if "cleanup_on_startup" in invalid_fields:
         repaired_config["cleanup_on_startup"] = DEFAULT_CONFIG["cleanup_on_startup"]
 
+    backup_config()
     save_config(repaired_config)
     return repaired_config
 

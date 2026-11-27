@@ -5,7 +5,10 @@ from cleanup import check_old_backups, get_backups
 from config import (
     load_config,
     save_config,
+    reset_config,
     repair_config,
+    load_config_raw,
+    get_invalid_config_fields,
     DEFAULT_CONFIG,
     ALLOWED_RETENTION_DAYS
 )
@@ -32,7 +35,49 @@ def show_restricted_menu():
 
 
 def run_config_recovery():
-    pass
+    try:
+        config = load_config_raw()
+
+    except ValueError as error:
+        print(f"\nErro ao carregar a configuracao: {error}")
+        return
+
+    if config is None:
+        print("\nNenhuma configuracao encontrada para recuperar.")
+        return
+
+    invalid_fields = get_invalid_config_fields(config)
+    print("\nCampos que precisam de recuperacao:")
+
+    for field in invalid_fields:
+        print(f"- {field}")
+
+    if not invalid_fields:
+        print("\nA configuracao ja esta valida. Nenhuma recuperacao necessaria.")
+        return
+
+    if "estrutura" in invalid_fields:
+        print("\nA estrutura do arquivo nao permite correcao individual.")
+        print("\n1. Restaurar configuracao padrao")
+        print("2. Voltar")
+
+    else:
+        print("\nOpcoes de recuperacao:")
+        print("1. Corrigir campos invalidos")
+        print("2. Restaurar configuracao padrao")
+        print("3. Voltar")
+
+    choice = input("\nEscolha uma opcao: ")
+
+    max_option = 2 if "estrutura" in invalid_fields else 3
+
+    while not choice.isdigit() or not 1 <= int(choice) <= max_option:
+        print("\nOpcao invalida! Tente novamente.")
+        choice = input("\nEscolha uma opcao: ")
+
+    if ("estrutura" in invalid_fields and choice == "2") or ( "estrutura" not in invalid_fields and choice == "3"):
+        print("\nRetornando ao menu...")
+        return
 
 
 def show_config_menu():
