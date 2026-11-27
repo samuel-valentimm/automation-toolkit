@@ -2,15 +2,131 @@ from backup import create_backup
 from datetime import datetime
 from logger import logger
 from cleanup import check_old_backups, get_backups
+from config import (
+    load_config,
+    save_config,
+    repair_config,
+    DEFAULT_CONFIG,
+    ALLOWED_RETENTION_DAYS
+)
 
 def show_menu():
     print("\n==============================")
-    print("      AUTOMATION TOOLKIT V1.0")
+    print("      AUTOMATION TOOLKIT V2.0")
     print("==============================")
     print("1. Criar backup")
     print("2. Limpar backups antigos")
     print("3. Consultar status")
+    print("4. Configuracoes")
+    print("5. Sair")
+
+def show_restricted_menu():
+    print("\n==============================")
+    print("   AUTOMATION TOOLKIT V2.0")
+    print("       MODO RESTRITO")
+    print("==============================")
+    print("1. Criar backup")
+    print("2. Consultar status")
+    print("3. Recuperar configuracao")
     print("4. Sair")
+
+
+def run_config_recovery():
+    pass
+
+
+def show_config_menu():
+    try:
+        config = load_config()
+
+    except ValueError as error:
+        print(f"\nErro na configuracao: {error}")
+        return
+
+    if config is None:
+            print("\nConfiguracao nao encontrada.")
+            print("\n1. Criar configuracao inicial")
+            print("2. Voltar")
+
+            choice = input("\nEscolha uma opcao: ")
+
+            while choice not in ("1", "2"):
+                print("\nOpcao invalida! Tente novamente.")
+                choice = input("\nEscolha uma opcao: ")
+
+            if choice == "1":
+                config = DEFAULT_CONFIG.copy()
+                save_config(config)
+                print("\nConfiguracao criada com sucesso!")
+
+            else:
+                return
+            
+    while True:
+        print("\n========== CONFIGURACOES ==========")
+        print(f"Periodo de retencao: {config['retention_days']} dias")
+
+        status = "Ativada" if config["cleanup_on_startup"] else "Desativada"
+        print(f"Limpeza automatica: {status}")
+
+        print("\n1. Alterar periodo de retencao")
+
+        action = "Desativar" if config["cleanup_on_startup"] else "Ativar"
+        print(f"2. {action} limpeza automatica.")
+        
+        print("3. Voltar")
+
+        choice = input("\nEscolha uma opcao: ")
+
+        match choice:
+            case "1":
+                change_retention(config)
+
+            case "2":
+                config["cleanup_on_startup"] = not config["cleanup_on_startup"]
+                save_config(config)
+
+                status = "ativada" if config["cleanup_on_startup"] else "desativada"
+                print(f"\nLimpeza automatica {status} com sucesso!")
+
+            case "3":
+                break
+
+            case _:
+                print("Opcao invalida!")
+
+
+def change_retention(config):
+    print("\n========== PERIODO DE RETENCAO ==========")
+    print(f"Periodo atual: {config['retention_days']} dias")
+
+    for index, days in enumerate(ALLOWED_RETENTION_DAYS, start = 1):
+        print(f"{index}. {days} dias")
+
+    print(f"{len(ALLOWED_RETENTION_DAYS) + 1}. Voltar")
+
+    choice =  input("\nEscolha uma opcao: ")
+
+    while not choice.isdigit() or not 1 <= int(choice) <= len(ALLOWED_RETENTION_DAYS) + 1:
+        print("\nOpcao invalida! Tente novamente.")
+        choice = input("\nEscolha uma opcao: ")
+
+    match choice:
+        case "7":
+            return
+
+        case _:
+            selected_days = ALLOWED_RETENTION_DAYS[int(choice) - 1]
+
+            if selected_days == config["retention_days"]:
+                print("\nPeriodo escolhido igual ao anterior.")
+                print(f"Mantendo periodo atual: {selected_days} dias.")
+                return
+
+            config["retention_days"] = selected_days
+            save_config(config)
+
+            print(f"\nPeriodo de retencao alterado para {selected_days} dias!")
 
 
 def get_user_choice():
@@ -34,6 +150,18 @@ def run_backup():
 
 
 def run_cleanup():
+    try:
+        config = load_config()
+
+    except ValueError:
+        logger.exception("Configuracao invalida. limpeza manual cancelada.")
+        print("\nConfiguracao invalida. Limpeza cancelada.")
+        return
+
+    if config is None:
+        print("\nConfiguracao nao encontrada. Crie uma configuracao antes de limpar os backups.")
+        return
+    
     print("\nIniciando limpeza de backups antigos...")
     check_old_backups()
     print("\nProcesso de limpeza finalizado.")
@@ -70,26 +198,69 @@ def run_status():
 
 
 def main():
+    restricted_mode = False
+
+    try:
+        config = load_config()
+
+    except ValueError:
+        restricted_mode = True
+        logger.exception("Configuracao invalida. Limpeza automatica ignorada.")
+
+    else:
+        if config is not None and config["cleanup_on_startup"]:
+            print("\nExecutando limpeza automatica...")
+            check_old_backups()
+
     while True:
-        show_menu()
+        if restricted_mode:
+            show_restricted_menu()
+
+        else:
+            show_menu()
+
         choice = get_user_choice()
 
-        match choice:
-            case "1":
-                run_backup()
+        if restricted_mode:
+            match choice:
 
-            case "2":
-                run_cleanup()
+                case "1":
+                    run_backup()
 
-            case "3":
-                run_status()
+                case "2":
+                    run_status()
 
-            case "4":
-                print("\nEncerrando Automation Toolkit...")
-                break
+                case "3":
+                    print("\nRecuperacao de configuracao ainda nao implementada.")
 
-            case _:
-                print("\nOpcao invalida! Tente novamente.")
+                case "4":
+                    print("\nEncerrando Automation Toolkit...")
+                    break
+
+                case _:
+                    print("Opcao invalida! Tente novamente.")
+
+        else:
+            match choice:
+
+                case "1":
+                    run_backup()
+
+                case "2":
+                    run_cleanup()
+
+                case "3":
+                    run_status()
+
+                case "4":
+                    show_config_menu()
+
+                case "5":
+                    print("\nEncerrando Automation Toolkit...")
+                    break
+
+                case _:
+                    print("\nOpcao invalida! Tente novamente.")
 
 
 if __name__ == "__main__":

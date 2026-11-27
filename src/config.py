@@ -55,5 +55,23 @@ def get_invalid_config_fields(config):
     return invalid_fields
 
 
+def repair_config(config):
+    invalid_fields = get_invalid_config_fields(config)
+
+    if "estrutura" in invalid_fields:
+        raise ValueError("Nao e possivel corrigir individualmente uma configuracao com estrutura invalida.")
+
+    repaired_config = config.copy()
+
+    if "retention_days" in invalid_fields:
+        repaired_config["retention_days"] = DEFAULT_CONFIG["retention_days"]
+
+    if "cleanup_on_startup" in invalid_fields:
+        repaired_config["cleanup_on_startup"] = DEFAULT_CONFIG["cleanup_on_startup"]
+
+    save_config(repaired_config)
+    return repaired_config
+
+
 def validate_config(config):
     return not get_invalid_config_fields(config)
